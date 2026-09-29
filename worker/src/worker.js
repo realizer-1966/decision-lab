@@ -1,6 +1,7 @@
 // decision-lab Worker — ollama.com 결정모델 랩 프록시
 // 전략: /v1/systemone(전용 엔드포인트) 시도 → 501이면 chat/completions 결정 프로토콜로 자동 폴백
 // 키는 wrangler secret OLLAMA_COM_KEY 만 사용 (코드 하드코딩 금지)
+const FALLBACK_MODEL = 'gpt-oss:20b';
 const DECISION_SYSTEM = `You are a decision engine (System One protocol).
 Judge the supplied state against the supplied single question. The answer schema depends on question type:
 - choice: answer {"choice":"<option-id>","probabilities":{<option-id>:<0..1>...},"confidence":<0..1>}
@@ -34,26 +35,38 @@ export default {
 
       // 2차: chat/completions 결정 프로토콜 폴백 — 질문별 개별 호출
       const stateStr = typeof state === 'string' ? state : JSON.stringify(state, null, 0);
+      let usedFallback = false;
       const answers = {};
       let usedTokens = null;
       const qentries = Object.entries(questions);
       for (const [qname, q] of qentries) {
         const userMsg = buildSingleQuestion(stateStr, qname, q);
-        const cc = await fetch('https://ollama.com/v1/chat/completions', {
+        const callChat = async (modelName) => await fetch('https://ollama.com/v1/chat/completions', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': 'Bearer ' + env.OLLAMA_COM_KEY,
             'User-Agent': 'decision-lab-proxy/1.2'
           },
-          body: JSON.stringify({ model, messages: [
+          body: JSON.stringify({ model: modelName, messages: [
             { role: 'system', content: DECISION_SYSTEM },
             { role: 'user', content: userMsg }
           ], options: { temperature: 0, num_predict: 512 } })
         });
-        const ccText = await cc.text();
+
+        let cc = await callChat(model);
+        let ccText = await cc.text();
         let ccData = null;
         try { ccData = JSON.parse(ccText); } catch (e) {}
+        // tev1/nimble 등 미개통 decision 모델 → gpt-oss:20b 자동 폴백 (1회만)
+        const isModel404 = !cc.ok && ccData && ccData.error && String(ccData.error.message || '').includes('not found');
+        if (isModel404 && model !== FALLBACK_MODEL) {
+          cc = await callChat(FALLBACK_MODEL);
+          ccText = await cc.text();
+          ccData = null;
+          try { ccData = JSON.parse(ccText); } catch (e) {}
+          usedFallback = true;
+        }
         if (!cc.ok) {
           return jres(cc.status, { error: ccData && ccData.error ? ccData.error : { message: 'ollama.com 오류 ' + cc.status, raw: ccText.slice(0, 300) } });
         }
@@ -68,6 +81,7 @@ export default {
       return jres(200, {
         answers,
         meta: { model, engine: 'chat-completions-decision', questions: qentries.length,
+                model_fallback: usedFallback ? FALLBACK_MODEL : null,
                 systemone_tried: true, systemone_status: s1.status, tokens: usedTokens }
       });
 
