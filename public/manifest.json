@@ -1,0 +1,21 @@
+{
+  "name": "decision-lab",
+  "short_name": "decision-lab",
+  "description": "ollama.com 결정모델 랩 — tev1·nimble /v1/systemone 시험",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0b1020",
+  "theme_color": "#0b1020",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

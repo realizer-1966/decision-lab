@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>decision-lab — System One 결정모델 랩</title>
+<link rel="manifest" href="/manifest.json" />
+<link rel="icon" href="/favicon.png" />
+<link rel="apple-touch-icon" href="/icons/icon-192.png" />
+<meta name="theme-color" content="#0b1020" />
+<style>
+      :root { color-scheme: dark; }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; background: #0b1020; }
+      body { font-family: -apple-system, 'Segoe UI', Roboto, 'Noto Sans KR', sans-serif; color: #e5e0f5; }
+      #app { height: 100dvh; display: flex; flex-direction: column; }
+      header { padding: 12px 16px 8px; border-bottom: 1px solid #241d3a; background: #0e1226; }
+      header h1 { margin: 0; font-size: 15.5px; font-weight: 800; color: #a78bfa; letter-spacing: .3px; }
+      header .sub { font-size: 11px; color: #7d75a0; margin-top: 2px; }
+
+      main { flex: 1; overflow-y: auto; padding: 12px 14px 20px; }
+
+      section.pane { display: none; }
+      section.pane.active { display: block; }
+
+      .card { background: #131a33; border: 1px solid #241d3a; border-radius: 12px; padding: 12px; margin-bottom: 12px; }
+      h3 { margin: 0 0 8px; font-size: 13px; color: #c4b5fd; font-weight: 700; }
+
+      .row { display: flex; gap: 8px; align-items: stretch; margin-top: 10px; flex-wrap: wrap; }
+      .row > * { flex: 1 1 0; min-width: 0; }
+      .row select, .row input, .row button { height: 40px; font-size: 13px; margin-top: 0; box-sizing: border-box; }
+      .row .full { flex: 1 1 100%; }
+
+      select, textarea, input[type="text"] {
+        width: 100%; background: #0d1229; color: #e5e0f5;
+        border: 1px solid #2c2352; border-radius: 9px; padding: 9px 11px;
+        font-size: 13.5px; font-family: inherit;
+      }
+      textarea { min-height: 76px; resize: vertical; line-height: 1.5; }
+
+      .btn {
+        display: block; width: 100%; background: #a78bfa; color: #161033;
+        border: 0; border-radius: 9px; padding: 11px 16px;
+        font-size: 14px; font-weight: 800; cursor: pointer;
+      }
+      .btn:disabled { opacity: .45; }
+      .ghost {
+        background: transparent; color: #a78bfa; border: 1px solid #3a2f63;
+        border-radius: 9px; padding: 8px 14px; font-size: 13px; font-weight: 700; cursor: pointer;
+      }
+      .lbl { font-size: 11px; color: #9c92c4; display: block; margin-bottom: 4px; }
+
+      .status { font-size: 11.5px; color: #887fae; min-height: 15px; margin-top: 4px; }
+      .badge {
+        display: inline-block; padding: 3px 9px; border-radius: 999px;
+        font-size: 10.5px; font-weight: 700; border: 1px solid #3a2f63; color: #a78bfa;
+      }
+      .badge.ok { background: #1d2a1f; color: #86efac; border-color: #2d4a33; }
+      .badge.err { background: #2b1119; color: #fda4af; border-color: #582033; }
+
+      .hint { color: #887fae; font-size: 0.76rem; margin-top: 5px; line-height: 1.45; }
+
+      pre {
+        background: #0d1229; border: 1px solid #2c2352; border-radius: 9px;
+        padding: 10px; font-size: 12px; line-height: 1.5; white-space: pre-wrap;
+        word-break: break-all; color: #d9d2f2; margin: 6px 0 0;
+      }
+      .probrow { display: flex; align-items: center; gap: 8px; margin-top: 6px; font-size: 12px; }
+      .probrow .name { flex: 0 0 auto; max-width: 40%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .probrow .barwrap { flex: 1; height: 8px; border-radius: 4px; background: #221b40; overflow: hidden; }
+      .probrow .bar { height: 100%; background: #a78bfa; border-radius: 4px; }
+      .probrow .pct { flex: 0 0 58px; text-align: right; color: #b9aee4; font-variant-numeric: tabular-nums; }
+      .win { font-weight: 800; color: #d8b4fe; }
+
+      .tabbar {
+        display: flex; border-top: 1px solid #241d3a; background: #0e1226;
+        position: relative;
+      }
+      .tabbar button {
+        flex: 1; padding: 9px 4px 11px; background: none; border: 0; color: #6b6390;
+        font-size: 10.5px; font-weight: 700; cursor: pointer; border-top: 2px solid transparent;
+      }
+      .tabbar button.active { color: #c4b5fd; border-top-color: #a78bfa; }
+      .tabbar .ticon { display: block; font-size: 15px; margin-bottom: 2px; }
+
+      #jse {
+        position: fixed; left: 0; right: 0; bottom: 0; z-index: 60;
+        background: #3d0d18; color: #ffd2d9; font-size: 11px;
+        padding: 5px 10px; display: none; word-break: break-all;
+      }
+      .hidden { display: none !important; }
+      .kv { font-size: 12px; color: #9c92c4; margin-top: 6px; }
+      .kv b { color: #e5e0f5; }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>◈ decision-lab</h1>
+    <div class="sub">ollama.com 결정모델 랩 — tev1 · nimble</div>
+  </header>
+
+  <main>
+    <section class="pane active" id="pane-connect">
+      <div class="card">
+        <h3>API 연결</h3>
+        <div class="kv">엔드포인트: <b>Worker 프록시 → ollama.com</b></div>
+        <div class="kv">모델: <b>tev1 (4B) · tev1:0.8b · nimble (9B)</b></div>
+        <div class="row" style="margin-top:10px">
+          <button class="btn" id="pingbtn">연결 테스트</button>
+        </div>
+        <div class="status" id="pingstat"></div>
+        <div class="hint">ollama.com API 키는 Cloudflare Worker 시크릿으로만 보관 — 폰에 저장되지 않아요.</div>
+      </div>
+      <div class="card">
+        <h3>결정모델 소개</h3>
+        <div class="hint">
+          <b>tev1</b> — Together AI 4B(4.5GB)·0.8B(812MB), Qwen3.5 파인튜닝 · 정확도 73.3%(4B)<br/>
+          <b>nimble</b> — Bespoke Labs 9B(9.5GB), 대조쌍 학습 · 정확도 75.7% · Apache 2.0<br/>
+          둘 다 /v1/systemone (state + questions 1~64) · 질문 유형: choice·noul·score · 옵션 2~26개
+        </div>
+      </div>
+      <div class="card">
+        <h3>빠른 시험</h3>
+        <div class="row">
+          <label class="lbl" style="flex:1">질문 프리셋
+            <select id="presetpick">
+              <option value="support">고객지원 의도 분류 (choice+noul)</option>
+              <option value="policy">정책 위반 판정 (choice)</option>
+              <option value="rubric">만족도 평가 (score)</option>
+            </select>
+          </label>
+        </div>
+        <div class="row">
+          <label class="lbl" style="flex:1">state (판단할 텍스트)
+            <textarea id="presetstate" placeholder="판단할 문장이나 JSON"></textarea>
+          </label>
+        </div>
+        <div class="row">
+          <label class="lbl" style="flex:1">questions (JSON 편집기)
+            <textarea id="presetqs" style="min-height:120px;font-family:ui-monospace,monospace"></textarea>
+          </label>
+        </div>
+        <div class="row">
+          <label class="lbl" style="flex:2.2">모델
+            <select id="presetmodel">
+              <option value="tev1">tev1 (4B — 정확)</option>
+              <option value="tev1:0.8b">tev1:0.8b (812MB — 초소형)</option>
+              <option value="nimble">nimble (9B — 최고 정확)</option>
+            </select>
+          </label>
+          <button class="btn" id="presetrun" style="flex:1">판정</button>
+        </div>
+        <div class="status" id="presetstat"></div>
+        <pre id="presetout" class="hidden"></pre>
+      </div>
+    </section>
+  </main>
+
+  <nav class="tabbar">
+    <button data-pane="pane-connect" class="active"><span class="ticon">◈</span>연결·시험</button>
+  </nav>
+</div>
+<div id="jse"></div>
+<script src="/app.js?v1"></script>
+</body>
+</html>
