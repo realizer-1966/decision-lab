@@ -120,6 +120,13 @@
     return parts.join('');
   }
 
+  function lock(btnId, on, labelBusy, labelIdle) {
+    const b = $(btnId);
+    if (!b) return;
+    b.disabled = on;
+    if (labelBusy && labelIdle) b.textContent = on ? labelBusy : labelIdle;
+  }
+
   // ---------- 프리셋 시험 ----------
   function loadPreset(name) {
     const p = PRESETS[name];
@@ -131,6 +138,7 @@
   async function runPreset() {
     if (busy) return;
     busy = true;
+    lock('presetrun', true, '판정 중…', '판정');
     $('presetout').classList.add('hidden');
     setStatus('presetstat', '판정 중...', '');
     try {
@@ -157,11 +165,14 @@
       out.classList.remove('hidden');
     } catch (e) {
       setStatus('presetstat', '오류: ' + (e && e.message ? e.message : String(e)), 'err');
-    } finally { busy = false; }
+    } finally { busy = false; lock('presetrun', false, null, '판정'); }
   }
 
   // ---------- 연결 테스트 ----------
   async function ping() {
+    if (busy) return;
+    busy = true;
+    lock('pingbtn', true, '테스트 중...', '연결 테스트');
     setStatus('pingstat', '테스트 중...', '');
     try {
       const t0 = performance.now();
@@ -172,9 +183,7 @@
       const eng = resp && resp.meta && resp.meta.engine ? resp.meta.engine : '';
       const note = eng === 'chat-completions-decision' ? ' [cloud 폴백엔진 — systemone 개통 시 자동 전환]' : '';
       setStatus('pingstat', `연결됨 — ${ms}ms · ${eng || '응답 도착'}${note}`, 'ok');
-    } catch (e) {
-      setStatus('pingstat', '오류: ' + (e && e.message ? e.message : String(e)), 'err');
-    }
+    } finally { busy = false; lock('pingbtn', false, null, '연결 테스트'); }
   }
 
 
@@ -197,6 +206,7 @@
   async function runQuiz() {
     if (busy) return;
     busy = true;
+    lock('quizrun', true, '채점 중...', '풀기');
     setStatus('quizstat', '채점 중...', '');
     const out = $('quizout');
     out.classList.add('hidden');
@@ -241,7 +251,7 @@
       setStatus('quizstat', '채점 완료 — 답 ' + chosen, 'ok');
     } catch (e) {
       setStatus('quizstat', '오류: ' + (e && e.message ? e.message : String(e)), 'err');
-    } finally { busy = false; }
+    } finally { busy = false; lock('quizrun', false, null, '풀기'); }
   }
 
   function selectedIdxSafe(i) { return i; }
