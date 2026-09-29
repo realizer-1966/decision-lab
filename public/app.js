@@ -124,7 +124,8 @@
     const b = $(btnId);
     if (!b) return;
     b.disabled = on;
-    if (labelBusy && labelIdle) b.textContent = on ? labelBusy : labelIdle;
+    const label = on ? labelBusy : labelIdle;
+    if (label) b.textContent = label;
   }
 
   // ---------- 프리셋 시험 ----------
