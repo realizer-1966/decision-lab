@@ -144,9 +144,13 @@
         <div class="row">
           <label class="lbl" style="flex:2.2">모델
             <select id="presetmodel">
-              <option value="tev1">tev1 (4B — 정확)</option>
-              <option value="tev1:0.8b">tev1:0.8b (812MB — 초소형)</option>
-              <option value="nimble">nimble (9B — 최고 정확)</option>
+              <option value="gpt-oss:20b">gpt-oss:20b (빠름·소형)</option>
+              <option value="gpt-oss:120b">gpt-oss:120b (정밀)</option>
+              <option value="glm-5.3-flash">glm-5.3-flash (최빠름)</option>
+              <option value="nemotron-3-nano:30b">nemotron-3-nano:30b (1M ctx)</option>
+              <option value="gemma4:31b">gemma4:31b</option>
+              <option value="tev1:0.8b">tev1:0.8b (decision 전용 — 미개통 시 폴백)</option>
+              <option value="nimble">nimble (decision 전용 — 미개통 시 폴백)</option>
             </select>
           </label>
           <button class="btn" id="presetrun" style="flex:1">판정</button>
@@ -162,6 +166,6 @@
   </nav>
 </div>
 <div id="jse"></div>
-<script src="/app.js?v1"></script>
+<script src="/app.js?v2"></script>
 </body>
 </html>

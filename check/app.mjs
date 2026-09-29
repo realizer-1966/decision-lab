@@ -165,7 +165,7 @@
     setStatus('pingstat', '테스트 중...', '');
     try {
       const t0 = performance.now();
-      const resp = await decide('tev1:0.8b', "Ping test: reply intent.", {
+      const resp = await decide($('presetmodel').value || 'gpt-oss:20b', "Ping test: reply intent.", {
         hello: { type: "noul", instructions: "Is this a greeting message?" }
       });
       const ms = Math.round(performance.now() - t0);
