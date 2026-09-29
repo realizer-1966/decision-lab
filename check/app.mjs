@@ -210,6 +210,58 @@
     if (want && [...sel.options].some(o => o.value === want)) sel.value = want;
   }
 
+  async function runPreset() {
+    if (busy) return;
+    busy = true;
+    lock('presetrun', true, '판정 중…', '판정');
+    $('presetout').classList.add('hidden');
+    setStatus('presetstat', '판정 중...', '');
+    try {
+      const model = $('presetmodel').value;
+      let state;
+      const sval = $('presetstate').value.trim();
+      try { state = JSON.parse(sval); } catch (e) { state = sval; }  // JSON이면 객체, 아니면 문자열
+      const questions = JSON.parse($('presetqs').value);
+      const t0 = performance.now();
+      const resp = await decide(model, state, questions);
+      const ms = Math.round(performance.now() - t0);
+      setStatus('presetstat', `판정 성공 — ${ms}ms (${model})`, 'ok');
+      const answers = resp && resp.answers ? resp.answers : resp;
+      const out = ($('presetout'));
+      let html = '';
+      const per = (answers && typeof answers === 'object' && !Array.isArray(answers))
+        ? Object.entries(answers) : [];
+      if (per.length) {
+        for (const [q, a] of per) html += fmtAnswer(q, a);
+      } else {
+        html = `<div class="hint">answers 필드를 찾지 못해 원문을 표시합니다.</div>`;
+      }
+      out.innerHTML = html + '<details style="margin-top:8px"><summary style="cursor:pointer;color:#887fae;font-size:11px">원문 JSON</summary><pre style="margin-top:6px">' + escape_(JSON.stringify(resp, null, 2)) + '</pre></details>';
+      out.classList.remove('hidden');
+    } catch (e) {
+      setStatus('presetstat', '오류: ' + (e && e.message ? e.message : String(e)), 'err');
+    } finally { busy = false; lock('presetrun', false, null, '판정'); }
+  }
+
+  async function ping() {
+    if (busy) return;
+    busy = true;
+    lock('pingbtn', true, '테스트 중...', '연결 테스트');
+    setStatus('pingstat', '테스트 중...', '');
+    try {
+      const t0 = performance.now();
+      const resp = await decide($('presetmodel').value || 'gpt-oss:20b', "Ping test: reply intent.", {
+        hello: { type: "noul", instructions: "Is this a greeting message?" }
+      });
+      const ms = Math.round(performance.now() - t0);
+      const eng = resp && resp.meta && resp.meta.engine ? resp.meta.engine : '';
+      const note = eng === 'chat-completions-decision' ? ' [cloud 폴백엔진 — systemone 개통 시 자동 전환]' : '';
+      setStatus('pingstat', `연결됨 — ${ms}ms · ${eng || '응답 도착'}${note}`, 'ok');
+    } catch (e) {
+      setStatus('pingstat', '오류: ' + (e && e.message ? e.message : String(e)), 'err');
+    } finally { busy = false; lock('pingbtn', false, null, '연결 테스트'); }
+  }
+
   function loadPresetByKey(key) {
     const all = allPresets();
     if (key.startsWith('u:')) {
