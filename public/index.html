@@ -141,19 +141,17 @@
             <textarea id="presetqs" style="min-height:120px;font-family:ui-monospace,monospace"></textarea>
           </label>
         </div>
-        <div class="row">
-          <label class="lbl" style="flex:2.2">모델
-            <select id="presetmodel">
+        <div class="row" style="align-items:stretch">
+          <select id="presetmodel" style="flex:2.2" aria-label="모델">
               <option value="gpt-oss:20b">gpt-oss:20b (빠름·소형)</option>
               <option value="gpt-oss:120b">gpt-oss:120b (정밀)</option>
               <option value="glm-5.3-flash">glm-5.3-flash (최빠름)</option>
               <option value="nemotron-3-nano:30b">nemotron-3-nano:30b (1M ctx)</option>
               <option value="gemma4:31b">gemma4:31b</option>
-              <option value="tev1:0.8b">tev1:0.8b (decision 전용 — 미개통 시 폴백)</option>
-              <option value="nimble">nimble (decision 전용 — 미개통 시 폴백)</option>
+              <option value="tev1:0.8b">tev1:0.8b (decision 전용)</option>
+              <option value="nimble">nimble (decision 전용)</option>
             </select>
-          </label>
-          <button class="btn" id="presetrun" style="flex:1">판정</button>
+          <button class="btn" id="presetrun" style="flex:1;margin-top:0;height:auto;align-self:stretch">판정</button>
         </div>
         <div class="status" id="presetstat"></div>
         <pre id="presetout" class="hidden"></pre>
