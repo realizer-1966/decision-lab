@@ -157,13 +157,49 @@
         <pre id="presetout" class="hidden"></pre>
       </div>
     </section>
+
+    <section class="pane" id="pane-quiz">
+      <div class="card">
+        <h3>객관식 문제 (수능형)</h3>
+        <label class="lbl">문제 지문 (state)</label>
+        <textarea id="quizstate" placeholder="지문·문제를 붙여넣으세요. 여러 문제는 빈 줄로 구분해 한 번에 요청 가능" style="min-height:110px"></textarea>
+        <div class="row">
+          <label class="lbl" style="flex:1">보기 (한 줄에 하나, 앞에 번호 붙이면 자동 제거)
+            <textarea id="quizoptions" placeholder="① 소매파동의 원인이 설명된 것&#10;② …&#10;③ …&#10;④ …&#10;⑤ …" style="min-height:96px"></textarea>
+          </label>
+        </div>
+        <div class="row" style="align-items:stretch">
+          <select id="quizmodel" style="flex:2.2" aria-label="모델">
+            <option value="gpt-oss:20b">gpt-oss:20b (빠름·소형)</option>
+            <option value="gpt-oss:120b">gpt-oss:120b (정밀)</option>
+            <option value="glm-5.3-flash">glm-5.3-flash (최빠름)</option>
+            <option value="nemotron-3-nano:30b">nemotron-3-nano:30b (1M ctx)</option>
+            <option value="gemma4:31b">gemma4:31b</option>
+          </select>
+          <button class="btn" id="quizrun" style="flex:1;margin-top:0;height:auto;align-self:stretch">풀기</button>
+        </div>
+        <div class="status" id="quizstat"></div>
+      </div>
+      <div class="card">
+        <h3>풀이 결과</h3>
+        <div id="quizout" class="hint">문제와 보기를 넣고 풀기를 누르세요. 답 + 각 보기 확률이 나옵니다.</div>
+      </div>
+      <div class="card">
+        <h3>예시 채우기</h3>
+        <div class="row" style="align-items:stretch">
+          <button class="ghost" id="quizexample" style="flex:1">수능 예시 채우기</button>
+        </div>
+        <div class="hint">지문 + 보기 5개를 채워 바로 시험할 수 있어요.</div>
+      </div>
+    </section>
   </main>
 
   <nav class="tabbar">
     <button data-pane="pane-connect" class="active"><span class="ticon">◈</span>연결·시험</button>
+    <button data-pane="pane-quiz"><span class="ticon">▤</span>객관식</button>
   </nav>
 </div>
 <div id="jse"></div>
-<script src="/app.js?v3"></script>
+<script src="/app.js?v4"></script>
 </body>
 </html>

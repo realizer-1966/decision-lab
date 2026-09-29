@@ -177,6 +177,88 @@
     }
   }
 
+
+  // ---------- 객관식 시험모드 ----------
+  const QUIZ_EXAMPLE = {
+    state: `[문제] 다음 글의 내용으로 볼 때, 소매파동의 원인으로 가장 적절하지 않은 것을 고르시오.
+금속화폐 유통 사정을 직접 다룬 기록에 따르면, 1510년 무렵 서울을 중심으로 사금(私金)의 유통이 확대되었고 ...`,
+    options: "① 조정의 재정이 급한 문제에 집중되지 못한 것\n② 상품 유통의 확대가 상충하던 것\n③ 화폐 경제가 전개된 결과이기도 한 것\n④ 전자들의 권리 주장으로 금속화폐 사용이 위축된 것\n⑤ 관료 지급 수단이 부족했던 것"
+  };
+
+  function parseOptions(text) {
+    // 줄 단위 분리, 선행 번호/동그라미제거
+    const lines = String(text).split(/\n+/).map(l => l.trim()).filter(Boolean);
+    return lines.map((l, i) => {
+      const cleaned = l.replace(/^[①②③④⑤⑥⑦⑧⑨⑩⑪⑫\d①\s.．)\-]+/u, '').trim();
+      return { key: String.fromCharCode(65 + i), description: cleaned || l };
+    });
+  }
+
+  async function runQuiz() {
+    if (busy) return;
+    busy = true;
+    setStatus('quizstat', '채점 중...', '');
+    const out = $('quizout');
+    out.classList.add('hidden');
+    try {
+      const model = $('quizmodel').value;
+      const state = $('quizstate').value.trim();
+      const optsRaw = $('quizoptions').value;
+      if (!state) throw new Error('문제 지문을 넣어주세요');
+      const options = parseOptions(optsRaw);
+      if (options.length < 2) throw new Error('보기를 2개 이상 넣어주세요 (한 줄에 하나)');
+
+      const questions = {
+        answer: {
+          type: 'choice',
+          instructions: 'Read the exam passage carefully and choose the ONE best option that correctly answers the question.',
+          criteria: Object.fromEntries(options.map(o => [o.key, o.description]))
+        }
+      };
+      const t0 = performance.now();
+      const resp = await decide(model, state, questions);
+      const ms = Math.round(performance.now() - t0);
+
+      const a = resp && resp.answers && resp.answers.answer ? resp.answers.answer : null;
+      if (!a) throw new Error('응답에 answer 없음: ' + JSON.stringify(resp).slice(0, 120));
+
+      const chosen = a.choice || '(응답없음)';
+      const conf = a.confidence !== undefined ? Math.round(a.confidence * 100) : null;
+      const chosenIdx = typeof chosen === 'string' ? chosen.toUpperCase().charCodeAt(0) - 65 : -1;
+      const chosenText = chosenIdx >= 0 && options[selectedIdxSafe(chosenIdx)] ? options[chosenIdx].description : '';
+
+      let html = `<div class="kv">답: <b class="win">${escape_(chosen)}${chosenText ? ' — ' + escape_(chosenText) : ''}</b> <span style="color:#887fae">(${ms}ms · ${escape_(model)})</span></div>`;
+      const probs = fmtProbs(a.probabilities);
+      if (probs) html += probs;
+      if (a.confidence !== undefined) html += `<div class="kv" style="color:#887fae">confidence ${conf}%</div>`;
+      html += '<details style="margin-top:8px"><summary style="cursor:pointer;color:#887fae;font-size:11px">원문 JSON</summary><pre style="margin-top:6px">' + escape_(JSON.stringify(resp, null, 2)) + '</pre></details>';
+      out.innerHTML = html;
+      out.classList.remove('hidden');
+      setStatus('quizstat', '채점 완료 — 답 ' + chosen, 'ok');
+    } catch (e) {
+      setStatus('quizstat', '오류: ' + (e && e.message ? e.message : String(e)), 'err');
+    } finally { busy = false; }
+  }
+
+  function selectedIdxSafe(i) { return i; }
+
+  function fillQuizExample() {
+    $('quizstate').value = QUIZ_EXAMPLE.state;
+    $('quizoptions').value = QUIZ_EXAMPLE.options;
+  }
+
+  $('quizrun').addEventListener('click', runQuiz);
+  $('quizexample').addEventListener('click', fillQuizExample);
+
+  // ---------- 탭 전환 ----------
+  document.querySelectorAll('.tabbar button').forEach((b) => {
+    b.addEventListener('click', () => {
+      document.querySelectorAll('.tabbar button').forEach((x) => x.classList.toggle('active', x === b));
+      document.querySelectorAll('section.pane').forEach((p) => p.classList.toggle('active', p.id === b.dataset.pane));
+      window.scrollTo(0, 0);
+    });
+  });
+
   // ---------- 부팅 ----------
   $('presetpick').addEventListener('change', (e) => loadPreset(e.target.value));
   $('presetrun').addEventListener('click', runPreset);
