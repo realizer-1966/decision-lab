@@ -164,6 +164,11 @@
         <label class="lbl">문제 지문 (state)</label>
         <textarea id="quizstate" placeholder="지문·문제를 붙여넣으세요. 여러 문제는 빈 줄로 구분해 한 번에 요청 가능" style="min-height:110px"></textarea>
         <div class="row">
+          <label class="lbl" style="flex:1">질문 (물어보는 문장 — 비우면 지문을 그대로 판단)
+            <textarea id="quizquestion" placeholder="예: 다음 글의 내용으로 볼 때, 소매파동의 원인으로 가장 적절하지 않은 것은?" style="min-height:52px"></textarea>
+          </label>
+        </div>
+        <div class="row">
           <label class="lbl" style="flex:1">보기 (한 줄에 하나, 앞에 번호 붙이면 자동 제거)
             <textarea id="quizoptions" placeholder="① 소매파동의 원인이 설명된 것&#10;② …&#10;③ …&#10;④ …&#10;⑤ …" style="min-height:96px"></textarea>
           </label>
@@ -200,6 +205,6 @@
   </nav>
 </div>
 <div id="jse"></div>
-<script src="/app.js?v4"></script>
+<script src="/app.js?v5"></script>
 </body>
 </html>

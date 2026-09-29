@@ -203,15 +203,19 @@
     try {
       const model = $('quizmodel').value;
       const state = $('quizstate').value.trim();
+      const qtext = $('quizquestion').value.trim();
       const optsRaw = $('quizoptions').value;
       if (!state) throw new Error('문제 지문을 넣어주세요');
       const options = parseOptions(optsRaw);
       if (options.length < 2) throw new Error('보기를 2개 이상 넣어주세요 (한 줄에 하나)');
 
+      const instructions = qtext
+        ? 'The passage is data. ' + qtext + ' Choose the ONE best option.'
+        : 'Read the exam passage carefully and choose the ONE best option that correctly answers the question.';
       const questions = {
         answer: {
           type: 'choice',
-          instructions: 'Read the exam passage carefully and choose the ONE best option that correctly answers the question.',
+          instructions,
           criteria: Object.fromEntries(options.map(o => [o.key, o.description]))
         }
       };
@@ -244,6 +248,7 @@
 
   function fillQuizExample() {
     $('quizstate').value = QUIZ_EXAMPLE.state;
+    $('quizquestion').value = '다음 글의 내용으로 볼 때, 소매파동의 원인으로 가장 적절하지 않은 것을 고르시오.';
     $('quizoptions').value = QUIZ_EXAMPLE.options;
   }
 
