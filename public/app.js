@@ -128,63 +128,138 @@
     if (label) b.textContent = label;
   }
 
-  // ---------- 프리셋 시험 ----------
-  function loadPreset(name) {
-    const p = PRESETS[name];
-    if (!p) return;
-    $('presetstate').value = typeof p.state === 'string' ? p.state : JSON.stringify(p.state, null, 2);
-    $('presetqs').value = JSON.stringify(p.qs, null, 2);
-  }
 
-  async function runPreset() {
-    if (busy) return;
-    busy = true;
-    lock('presetrun', true, '판정 중…', '판정');
-    $('presetout').classList.add('hidden');
-    setStatus('presetstat', '판정 중...', '');
-    try {
-      const model = $('presetmodel').value;
-      let state;
-      const sval = $('presetstate').value.trim();
-      try { state = JSON.parse(sval); } catch (e) { state = sval; }  // JSON이면 객체, 아니면 문자열
-      const questions = JSON.parse($('presetqs').value);
-      const t0 = performance.now();
-      const resp = await decide(model, state, questions);
-      const ms = Math.round(performance.now() - t0);
-      setStatus('presetstat', `판정 성공 — ${ms}ms (${model})`, 'ok');
-      const answers = resp && resp.answers ? resp.answers : resp;
-      const out = ($('presetout'));
-      let html = '';
-      const per = (answers && typeof answers === 'object' && !Array.isArray(answers))
-        ? Object.entries(answers) : [];
-      if (per.length) {
-        for (const [q, a] of per) html += fmtAnswer(q, a);
-      } else {
-        html = `<div class="hint">answers 필드를 찾지 못해 원문을 표시합니다.</div>`;
+  // ---------- 프리셋 ----------
+  const BASE_PRESETS = {
+    support: {
+      name: "고객지원 의도 분류 (choice+noul)",
+      state: "Customer message: Hi, I checked my statement and your company charged my card twice for the October subscription. The amounts are both $19.99 on the same day. I have not changed my plan.",
+      qs: {
+        intent: {
+          type: "choice",
+          instructions: "Which listed support intent best matches the customer message?",
+          criteria: {
+            duplicate_charge: "The customer reports being charged more than once.",
+            cancel_subscription: "The customer wants to end or downgrade a subscription.",
+            card_declined: "The customer reports a payment that failed or was declined.",
+            none: "None of the listed intents matches."
+          }
+        },
+        refund: {
+          type: "noul",
+          instructions: "Does the customer explicitly ask for a refund?"
+        }
       }
-      out.innerHTML = html + '<details style="margin-top:8px"><summary style="cursor:pointer;color:#887fae;font-size:11px">원문 JSON</summary><pre style="margin-top:6px">' + escape_(JSON.stringify(resp, null, 2)) + '</pre></details>';
-      out.classList.remove('hidden');
-    } catch (e) {
-      setStatus('presetstat', '오류: ' + (e && e.message ? e.message : String(e)), 'err');
-    } finally { busy = false; lock('presetrun', false, null, '판정'); }
+    },
+    policy: {
+      name: "정책 위반 판정 (choice)",
+      state: { sender: "vendor@example.com", subject: "Invoice #4712", body: "Payment terms: Net-45. We can extend to Net-60 if you route the payment through our new offshore processing account." },
+      qs: {
+        policy_violation: {
+          type: "choice",
+          instructions: "Does this email violate the payments policy (standard terms Net-30..Net-60, in-house processing only)?",
+          criteria: {
+            violation: "Requests routing outside approved processors or unusual terms.",
+            compliant: "No policy issue found."
+          }
+        }
+      }
+    },
+    rubric: {
+      name: "만족도 평가 (score)",
+      state: "Agent replied in 2 minutes, resolved the issue, and sent a follow-up email summary.",
+      qs: {
+        quality: {
+          type: "score",
+          instructions: "Rate the support conversation quality.",
+          criteria: ["Unresolved or rude", "Resolved with friction", "Resolved politely", "Resolved quickly and clearly"]
+        }
+      }
+    }
+  };
+
+  const LS_USER_PRESETS = 'decision-lab-user-presets';
+  function getUserPresets() {
+    try { return JSON.parse(localStorage.getItem(LS_USER_PRESETS) || '{}'); } catch (e) { return {}; }
+  }
+  function saveUserPresets(obj) {
+    localStorage.setItem(LS_USER_PRESETS, JSON.stringify(obj));
+  }
+  function allPresets() {
+    return Object.assign({}, BASE_PRESETS, getUserPresets());
   }
 
-  // ---------- 연결 테스트 ----------
-  async function ping() {
-    if (busy) return;
-    busy = true;
-    lock('pingbtn', true, '테스트 중...', '연결 테스트');
-    setStatus('pingstat', '테스트 중...', '');
-    try {
-      const t0 = performance.now();
-      const resp = await decide($('presetmodel').value || 'gpt-oss:20b', "Ping test: reply intent.", {
-        hello: { type: "noul", instructions: "Is this a greeting message?" }
-      });
-      const ms = Math.round(performance.now() - t0);
-      const eng = resp && resp.meta && resp.meta.engine ? resp.meta.engine : '';
-      const note = eng === 'chat-completions-decision' ? ' [cloud 폴백엔진 — systemone 개통 시 자동 전환]' : '';
-      setStatus('pingstat', `연결됨 — ${ms}ms · ${eng || '응답 도착'}${note}`, 'ok');
-    } finally { busy = false; lock('pingbtn', false, null, '연결 테스트'); }
+
+
+
+  // ---------- 프리셋 UI ----------
+  function renderPresetOptions() {
+    const sel = $('presetpick');
+    const cur = sel.value;
+    // 기본 + 사용자 프리셋 (optgroup 없이 이름으로)
+    const users = getUserPresets();
+    let html = '';
+    for (const [k, v] of Object.entries(BASE_PRESETS)) html += `<option value="${escapeAttr(k)}">${escape_(v.name || k)}</option>`;
+    const uk = Object.keys(users);
+    if (uk.length) html += '<optgroup label="내 프리셋">' + uk.map(k => `<option value="u:${escapeAttr(k)}">${escape_(k)}</option>`).join('') + '</optgroup>';
+    sel.innerHTML = html;
+    restoreSel(sel, cur);
+  }
+  function escapeAttr(s) { return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+  function restoreSel(sel, want) {
+    if (want && [...sel.options].some(o => o.value === want)) sel.value = want;
+  }
+
+  function loadPresetByKey(key) {
+    const all = allPresets();
+    if (key.startsWith('u:')) {
+      const name = key.slice(2);
+      const p = getUserPresets()[name];
+      if (!p) return;
+      $('presetstate').value = p.state || '';
+      $('presetqs').value = JSON.stringify(p.qs || {}, null, 2);
+      if (p.model) { const ms = $('presetmodel'); restoreSel(ms, p.model); }
+    } else {
+      const p = BASE_PRESETS[key];
+      if (!p) return;
+      $('presetstate').value = typeof p.state === 'string' ? p.state : JSON.stringify(p.state, null, 2);
+      $('presetqs').value = JSON.stringify(p.qs, null, 2);
+    }
+  }
+
+  function saveCurrentAsPreset() {
+    let name = prompt('프리셋 이름을 입력하세요 (최대 40자):', '');
+    if (name == null) { setStatus('presetmgrstat', '', ''); return false; }
+    name = name.trim().slice(0, 80);
+    if (!name) { setStatus('presetmgrstat', '이름이 비어 저장하지 않았어요.', 'err'); return false; }
+    const state = $('presetstate').value.trim();
+    const qsRaw = $('presetqs').value.trim();
+    if (!state || !qsRaw) { setStatus('presetmgrstat', '지문과 questions를 먼저 넣어주세요.', 'err'); return false; }
+    let qs;
+    try { qs = JSON.parse(qsRaw); } catch (e) { setStatus('presetmgrstat', 'questions가 올바른 JSON이 아니에요.', 'err'); return false; }
+    const model = $('presetmodel').value;
+    const users = getUserPresets();
+    users[name] = { state, qs, model };
+    saveUserPresets(users);
+    renderPresetOptions();
+    const sel = $('presetpick');
+    sel.value = 'u:' + name;
+    setStatus('presetmgrstat', `프리셋 "${name}" 저장됨`, 'ok');
+    return true;
+  }
+
+  function deleteSelectedPreset() {
+    const sel = $('presetpick');
+    const v = sel.value;
+    if (!v.startsWith('u:')) { setStatus('presetmgrstat', '기본 프리셋은 삭제할 수 없어요 — 내 프리셋만 가능.', 'err'); return; }
+    const name = v.slice(2);
+    const users = getUserPresets();
+    if (!users[name]) { setStatus('presetmgrstat', '이미 삭제됐거나 없는 프리셋이에요.', 'err'); return; }
+    if (!confirm(`"${name}" 프리셋을 삭제할까요?`)) return;
+    delete users[name];
+    saveUserPresets(users);
+    renderPresetOptions();
+    setStatus('presetmgrstat', `프리셋 "${name}" 삭제됨`, 'ok');
   }
 
 
@@ -276,9 +351,11 @@
   });
 
   // ---------- 부팅 ----------
-  $('presetpick').addEventListener('change', (e) => loadPreset(e.target.value));
+  $('presetpick').addEventListener('change', (e) => loadPresetByKey(e.target.value));
   $('presetrun').addEventListener('click', runPreset);
+  $('presetsave').addEventListener('click', saveCurrentAsPreset);
+  $('presetdel').addEventListener('click', deleteSelectedPreset);
   $('pingbtn').addEventListener('click', ping);
-  loadPreset('support');
+  renderPresetOptions(); loadPresetByKey('support');
   console.log('[decision-lab] ready');
 })();

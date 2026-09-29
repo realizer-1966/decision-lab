@@ -122,15 +122,17 @@
       </div>
       <div class="card">
         <h3>빠른 시험</h3>
-        <div class="row">
-          <label class="lbl" style="flex:1">질문 프리셋
-            <select id="presetpick">
-              <option value="support">고객지원 의도 분류 (choice+noul)</option>
-              <option value="policy">정책 위반 판정 (choice)</option>
-              <option value="rubric">만족도 평가 (score)</option>
-            </select>
-          </label>
+        <div class="row" style="align-items:stretch">
+          <select id="presetpick" style="flex:2.2" aria-label="질문 프리셋">
+            <option value="support">고객지원 의도 분류 (choice+noul)</option>
+            <option value="policy">정책 위반 판정 (choice)</option>
+            <option value="rubric">만족도 평가 (score)</option>
+          </select>
+          <button class="btn" id="presetsave" style="flex:1;margin-top:0;height:auto;align-self:stretch">추가</button>
+          <button class="ghost" id="presetdel" style="flex:1;margin-top:0;height:auto;align-self:stretch">삭제</button>
         </div>
+        <div class="status" id="presetmgrstat"></div>
+        <div class="hint">추가 = 지금 편집 중인 지문·질문·questions를 프리셋으로 저장(이름 직접 입력). 기본 3개는 유지되고 내 프리셋은 삭제 가능.</div>
         <div class="row">
           <label class="lbl" style="flex:1">state (판단할 텍스트)
             <textarea id="presetstate" placeholder="판단할 문장이나 JSON"></textarea>
@@ -205,6 +207,6 @@
   </nav>
 </div>
 <div id="jse"></div>
-<script src="/app.js?v7"></script>
+<script src="/app.js?v8"></script>
 </body>
 </html>
