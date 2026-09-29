@@ -169,7 +169,9 @@
         hello: { type: "noul", instructions: "Is this a greeting message?" }
       });
       const ms = Math.round(performance.now() - t0);
-      setStatus('pingstat', `연결됨 — ${ms}ms · 응답 도착 (${JSON.stringify(resp && resp.answers ? Object.keys(resp.answers) : resp).slice(0, 60)})`, 'ok');
+      const eng = resp && resp.meta && resp.meta.engine ? resp.meta.engine : '';
+      const note = eng === 'chat-completions-decision' ? ' [cloud 폴백엔진 — systemone 개통 시 자동 전환]' : '';
+      setStatus('pingstat', `연결됨 — ${ms}ms · ${eng || '응답 도착'}${note}`, 'ok');
     } catch (e) {
       setStatus('pingstat', '오류: ' + (e && e.message ? e.message : String(e)), 'err');
     }
