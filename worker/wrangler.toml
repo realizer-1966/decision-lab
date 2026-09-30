@@ -1,5 +1,5 @@
 name = "decision-lab"
-main = "src/worker.js"
+main = "worker-root.js"
 compatibility_date = "2026-09-20"
 account_id = "56f2f60bdba5a9bf7f58478a14a4ed90"
 
