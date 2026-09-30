@@ -71,8 +71,11 @@
   // ---------- 호출처(엔진) ----------
   const LS_ENGINE = 'decision-lab-engine';
   const LAPTOP_BASE = 'https://dydtn.tailc2a754.ts.net/decision';
+  // 노트북(o llama 0.35)에 실제 존재하는 결정모델 — 이 이름은 노트북으로 라우팅
+  const LAPTOP_MODELS = ['tev1:0.8b', 'tev1:latest', 'nimble', 'nimble:latest'];
+  function isLaptopModel(m) { return LAPTOP_MODELS.includes(m); }
   function getEngine() {
-    return localStorage.getItem(LS_ENGINE) || 'cloud';
+    return localStorage.getItem(LS_ENGINE) || 'auto';
   }
   function setEngine(v) {
     localStorage.setItem(LS_ENGINE, v);
@@ -80,20 +83,29 @@
     if (sel) sel.value = v;
     renderEngineLabel();
   }
+  function engineLabelText() {
+    const eng = getEngine();
+    if (eng === 'laptop') return '노트북 native (ts.net/decision) — 전부 노트북';
+    if (eng === 'auto') return '자동 — 결정모델(tev1·nimble)은 노트북, 나머지는 클라우드';
+    return '클라우드 (Worker 프록시) — 전부 클라우드';
+  }
   function renderEngineLabel() {
-    const txt = getEngine() === 'laptop' ? '노트북 native (ts.net/decision)' : '클라우드 (Worker 프록시)';
+    const txt = engineLabelText();
     const el = $('enginelabel');
     if (el) el.textContent = txt;
     const q = $('quizenginelabel');
     if (q) q.textContent = txt;
   }
-  function engineEndpoint() {
-    return getEngine() === 'laptop' ? LAPTOP_BASE + '/v1/systemone' : '/api/decide';
+  function engineEndpoint(model) {
+    // auto: 결정전용 모델(tev1·nimble)은 노트북, 나머지는 클라우드
+    if (getEngine() === 'laptop') return LAPTOP_BASE + '/v1/systemone';
+    if (getEngine() === 'auto') return isLaptopModel(model) ? LAPTOP_BASE + '/v1/systemone' : '/api/decide';
+    return '/api/decide';
   }
 
   // ---------- 호출 ----------
   async function decide(model, state, questions, signal) {
-    const r = await fetch(engineEndpoint(), {
+    const r = await fetch(engineEndpoint(model), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ model, state, questions }),
@@ -106,7 +118,8 @@
       const msg = data && (data.error && data.error.message || data.error) || text.slice(0, 200);
       throw new Error('HTTP ' + r.status + ' — ' + msg);
     }
-    if (getEngine() === 'laptop' && data && !data.meta) data.meta = { engine: 'systemone-native', model: data.model || model };
+    const wentLaptop = (engineEndpoint(model) === LAPTOP_BASE + '/v1/systemone');
+    if (wentLaptop && data && !data.meta) data.meta = { engine: 'systemone-native', model: data.model || model };
     return data;
   }
 
@@ -275,7 +288,8 @@
     try {
       const t0 = performance.now();
       let msg;
-      if (getEngine() === 'laptop') {
+      const eng = getEngine();
+      if (eng === 'laptop' || (eng === 'auto')) {
         // 노트북 모드 — 서버 존재 + systemone 기능 테스트(모델 무관 tev1 사용)
         const vr = await fetch(LAPTOP_BASE + '/api/version');
         if (!vr.ok) throw new Error('HTTP ' + vr.status + ' — 서버 version 응답 이상');
@@ -284,7 +298,7 @@
           hello: { type: "noul", instructions: "Is this a greeting message?" }
         });
         const ms = Math.round(performance.now() - t0);
-        msg = `연결됨 — ollama ${vv.version || '?'} · ${ms}ms (노트북 native)`;
+        msg = `연결됨 — ollama ${vv.version || '?'} · ${ms}ms ${eng === 'auto' ? '(자동: 노트북 결정모델)' : '(노트북 native)'}`;
       } else {
         const resp = await decide($('presetmodel').value || 'gpt-oss:20b', "Ping test: reply intent.", {
           hello: { type: "noul", instructions: "Is this a greeting message?" }
@@ -296,8 +310,9 @@
       }
       setStatus('pingstat', msg, 'ok');
     } catch (e) {
-      const hint = (getEngine() === 'laptop')
-        ? ' — 노트북 전원·tailscale VPN 확인 후 재시도' : '';
+      const eng2 = getEngine();
+      const hint = (eng2 === 'laptop' || eng2 === 'auto')
+        ? ' — 노트북 전원·tailscale VPN 확인 후 재시도 (자동 모드에선 클라우드 모델은 영향 없음)' : '';
       setStatus('pingstat', '오류: ' + (e && e.message ? e.message : String(e)) + hint, 'err');
     } finally { busy = false; lock('pingbtn', false, null, '연결 테스트'); }
   }
@@ -464,7 +479,15 @@
     mk('tev1:0.8b', 'tev1:0.8b (노트북 decision)');
     mk('nimble', 'nimble (노트북 decision)');
   })();
-  // 엔진 셀렉트 초기값 = 저장값
+  // 엔진 셀렉트에 auto 옵션 보장 + 초기값
+  (function ensureAutoOption() {
+    const sel = $('enginesel');
+    if (![...sel.options].some(o => o.value === 'auto')) {
+      const o = document.createElement('option');
+      o.value = 'auto'; o.textContent = '자동 (결정모델=노트북, 나머지=클라우드)';
+      sel.insertBefore(o, sel.firstChild);
+    }
+  })();
   $('enginesel').value = getEngine();
   renderEngineLabel();
   renderPresetOptions(); loadPresetByKey('support');
