@@ -274,15 +274,31 @@
     setStatus('pingstat', '테스트 중...', '');
     try {
       const t0 = performance.now();
-      const resp = await decide($('presetmodel').value || 'gpt-oss:20b', "Ping test: reply intent.", {
-        hello: { type: "noul", instructions: "Is this a greeting message?" }
-      });
-      const ms = Math.round(performance.now() - t0);
-      const eng = resp && resp.meta && resp.meta.engine ? resp.meta.engine : '';
-      const note = eng === 'chat-completions-decision' ? ' [cloud 폴백엔진 — systemone 개통 시 자동 전환]' : '';
-      setStatus('pingstat', `연결됨 — ${ms}ms · ${eng || '응답 도착'}${note}`, 'ok');
+      let msg;
+      if (getEngine() === 'laptop') {
+        // 노트북 모드 — 서버 존재 + systemone 기능 테스트(모델 무관 tev1 사용)
+        const vr = await fetch(LAPTOP_BASE + '/api/version');
+        if (!vr.ok) throw new Error('HTTP ' + vr.status + ' — 서버 version 응답 이상');
+        const vv = await vr.json();
+        const gr = await decide('tev1:0.8b', "Ping test: reply intent.", {
+          hello: { type: "noul", instructions: "Is this a greeting message?" }
+        });
+        const ms = Math.round(performance.now() - t0);
+        msg = `연결됨 — ollama ${vv.version || '?'} · ${ms}ms (노트북 native)`;
+      } else {
+        const resp = await decide($('presetmodel').value || 'gpt-oss:20b', "Ping test: reply intent.", {
+          hello: { type: "noul", instructions: "Is this a greeting message?" }
+        });
+        const ms = Math.round(performance.now() - t0);
+        const eng = resp && resp.meta && resp.meta.engine ? resp.meta.engine : '';
+        const note = eng === 'chat-completions-decision' ? ' [cloud 폴백엔진 — systemone 개통 시 자동 전환]' : '';
+        msg = `연결됨 — ${ms}ms · ${eng || '응답 도착'}${note}`;
+      }
+      setStatus('pingstat', msg, 'ok');
     } catch (e) {
-      setStatus('pingstat', '오류: ' + (e && e.message ? e.message : String(e)), 'err');
+      const hint = (getEngine() === 'laptop')
+        ? ' — 노트북 전원·tailscale VPN 확인 후 재시도' : '';
+      setStatus('pingstat', '오류: ' + (e && e.message ? e.message : String(e)) + hint, 'err');
     } finally { busy = false; lock('pingbtn', false, null, '연결 테스트'); }
   }
 
