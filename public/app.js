@@ -81,9 +81,11 @@
     renderEngineLabel();
   }
   function renderEngineLabel() {
+    const txt = getEngine() === 'laptop' ? '노트북 native (ts.net/decision)' : '클라우드 (Worker 프록시)';
     const el = $('enginelabel');
-    if (el) el.textContent = getEngine() === 'laptop'
-      ? '노트북 native (ts.net/decision)' : '클라우드 (Worker 프록시)';
+    if (el) el.textContent = txt;
+    const q = $('quizenginelabel');
+    if (q) q.textContent = txt;
   }
   function engineEndpoint() {
     return getEngine() === 'laptop' ? LAPTOP_BASE + '/v1/systemone' : '/api/decide';

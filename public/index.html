@@ -190,10 +190,13 @@
             <option value="glm-5.3-flash">glm-5.3-flash (최빠름)</option>
             <option value="nemotron-3-nano:30b">nemotron-3-nano:30b (1M ctx)</option>
             <option value="gemma4:31b">gemma4:31b</option>
+            <option value="tev1:0.8b">tev1:0.8b (노트북 decision)</option>
+            <option value="nimble">nimble (노트북 decision)</option>
           </select>
           <button class="btn" id="quizrun" style="flex:1;margin-top:0;height:auto;align-self:stretch">풀기</button>
         </div>
         <div class="status" id="quizstat"></div>
+        <div class="hint">엔진은 연결·시험 탭의 엔진 셀렉트를 따릅니다 — <span id="quizenginelabel"></span></div>
       </div>
       <div class="card">
         <h3>풀이 결과</h3>
@@ -215,6 +218,6 @@
   </nav>
 </div>
 <div id="jse"></div>
-<script src="/app.js?v9"></script>
+<script src="/app.js?v10"></script>
 </body>
 </html>
