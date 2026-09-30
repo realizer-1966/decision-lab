@@ -305,7 +305,11 @@
       let state;
       const sval = $('presetstate').value.trim();
       try { state = JSON.parse(sval); } catch (e) { state = sval; }  // JSON이면 객체, 아니면 문자열
-      const questions = JSON.parse($('presetqs').value);
+      const qsRaw = $('presetqs').value.trim();
+      let questions;
+      if (qsRaw) {
+        try { questions = JSON.parse(qsRaw); } catch (e) { throw new Error('questions JSON 오류 — ' + e.message); }
+      }  // 비우고 ★ 모델이면 서버 내장 질문셋 사용 (olllaya 실측 200)
       const t0 = performance.now();
       const resp = await decide(model, state, questions);
       const ms = Math.round(performance.now() - t0);
@@ -730,6 +734,29 @@
       sel.insertBefore(o, sel.firstChild);
     }
   })();
+  let lastAutoQS = '';
+  async function fetchEmbedded(model) {
+    try {
+      const h = { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + OLLAYA_KEY };
+      const r = await fetch(OLLAYA_BASE + '/api/show', { method: 'POST', headers: h, body: JSON.stringify({ model }) });
+      if (!r.ok) return null;
+      const j = await r.json();
+      return (j.questions && Object.keys(j.questions).length) ? j.questions : null;
+    } catch (e) { return null; }
+  }
+  $('presetmodel').addEventListener('change', async () => {
+    const m = $('presetmodel').value;
+    if (!OLLAYA_MINE.has(m)) return;
+    const q = await fetchEmbedded(m);
+    if (!q) { setStatus('presetstat', '★ ' + m + ' — 레지스트리 모델은 내장 질문셋이 없습니다. questions를 넣어주세요.', ''); return; }
+    const s = JSON.stringify(q, null, 2);
+    if ($('presetqs').value.trim() === '' || $('presetqs').value === lastAutoQS) {
+      $('presetqs').value = s; lastAutoQS = s;
+      setStatus('presetstat', '★ ' + m + ' — 모델 내장 질문셋 자동 로드 (비우고 판정하면 모델 내장값 사용)', 'ok');
+    } else {
+      setStatus('presetstat', '★ ' + m + ' — 내장 질문셋 있으나 편집 중인 questions 보호 (questions를 지우면 자동 로드)', '');
+    }
+  });
   $('enginesel').value = getEngine();
   loadOllayaModels();
   renderEngineLabel();
