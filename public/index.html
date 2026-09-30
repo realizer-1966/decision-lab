@@ -144,6 +144,14 @@
           </label>
         </div>
         <div class="row" style="align-items:stretch">
+          <select id="enginesel" style="flex:2.2" aria-label="엔진">
+            <option value="cloud">클라우드 (Worker 프록시)</option>
+            <option value="laptop">노트북 native (tev1·nimble)</option>
+          </select>
+          <button id="engineapply" class="ghost" style="flex:1">엔진 적용</button>
+        </div>
+        <div class="row"><span class="hint" id="enginelabel"></span></div>
+<div class="row" style="align-items:stretch">
           <select id="presetmodel" style="flex:2.2" aria-label="모델">
               <option value="gpt-oss:20b">gpt-oss:20b (빠름·소형)</option>
               <option value="gpt-oss:120b">gpt-oss:120b (정밀)</option>

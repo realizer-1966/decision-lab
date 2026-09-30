@@ -68,9 +68,30 @@
     el.style.color = cls === 'ok' ? '#86efac' : cls === 'err' ? '#fda4af' : '';
   }
 
-  // ---------- 프록시 호출 ----------
+  // ---------- 호출처(엔진) ----------
+  const LS_ENGINE = 'decision-lab-engine';
+  const LAPTOP_BASE = 'https://dydtn.tailc2a754.ts.net/decision';
+  function getEngine() {
+    return localStorage.getItem(LS_ENGINE) || 'cloud';
+  }
+  function setEngine(v) {
+    localStorage.setItem(LS_ENGINE, v);
+    const sel = $('enginesel');
+    if (sel) sel.value = v;
+    renderEngineLabel();
+  }
+  function renderEngineLabel() {
+    const el = $('enginelabel');
+    if (el) el.textContent = getEngine() === 'laptop'
+      ? '노트북 native (ts.net/decision)' : '클라우드 (Worker 프록시)';
+  }
+  function engineEndpoint() {
+    return getEngine() === 'laptop' ? LAPTOP_BASE + '/v1/systemone' : '/api/decide';
+  }
+
+  // ---------- 호출 ----------
   async function decide(model, state, questions, signal) {
-    const r = await fetch('/api/decide', {
+    const r = await fetch(engineEndpoint(), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ model, state, questions }),
@@ -83,6 +104,7 @@
       const msg = data && (data.error && data.error.message || data.error) || text.slice(0, 200);
       throw new Error('HTTP ' + r.status + ' — ' + msg);
     }
+    if (getEngine() === 'laptop' && data && !data.meta) data.meta = { engine: 'systemone-native', model: data.model || model };
     return data;
   }
 
@@ -408,6 +430,25 @@
   $('presetsave').addEventListener('click', saveCurrentAsPreset);
   $('presetdel').addEventListener('click', deleteSelectedPreset);
   $('pingbtn').addEventListener('click', ping);
+  $('engineapply').addEventListener('click', () => {
+    const v = $('enginesel').value;
+    setEngine(v);
+    const s = v === 'laptop'
+      ? '노트북 엔진으로 전환 — 판정 시 ' + 'ts.net/decision 직접 호출'
+      : '클라우드 엔진으로 전환 — Worker 프록시';
+    setStatus('presetmgrstat', s, 'ok');
+  });
+  // 프리셋 모델 select에 노트북 결정모델 옵션 (엔진이 노트북일 때만 의미 있음 — 상시 노출로 단순 유지)
+  (function addLaptopModels() {
+    const sel = $('presetmodel');
+    const mk = (v, t) => { if (![...sel.options].some(o => o.value === v)) {
+      const o = document.createElement('option'); o.value = v; o.textContent = t; sel.appendChild(o); } };
+    mk('tev1:0.8b', 'tev1:0.8b (노트북 decision)');
+    mk('nimble', 'nimble (노트북 decision)');
+  })();
+  // 엔진 셀렉트 초기값 = 저장값
+  $('enginesel').value = getEngine();
+  renderEngineLabel();
   renderPresetOptions(); loadPresetByKey('support');
   console.log('[decision-lab] ready');
 })();
