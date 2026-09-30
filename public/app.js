@@ -74,6 +74,47 @@
   // 노트북(o llama 0.35)에 실제 존재하는 결정모델 — 이 이름은 노트북으로 라우팅
   const LAPTOP_MODELS = ['tev1:0.8b', 'tev1:latest', 'nimble', 'nimble:latest'];
   function isLaptopModel(m) { return LAPTOP_MODELS.includes(m); }
+  // 노트북 ollaya 데몬(11435, ts.net 루트) — 내가 만든 결정모델(ys-triage 등)이 사는 곳
+  const OLLAYA_BASE = 'https://dydtn.tailc2a754.ts.net';
+  const OLLAYA_KEY = '#ys1217474!';
+  let OLLAYA_MODELS = new Set();      // 데몬 설치 모델명 집합 — 부팅·핑 때 갱신
+  const OLLAYA_MINE = new Set();      // parent_model 있는 커스텀 모델 (★ 표시)
+  async function loadOllayaModels() {
+    try {
+      const h = { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + OLLAYA_KEY };
+      const [mr, tr] = await Promise.all([
+        fetch(OLLAYA_BASE + '/v1/models', { headers: h }),
+        fetch(OLLAYA_BASE + '/api/tags', { headers: h }),
+      ]);
+      if (!mr.ok || !tr.ok) return;
+      const models = (await mr.json()).models ?? [];
+      const tags = (await tr.json()).models ?? [];
+      OLLAYA_MODELS = new Set(models.map((m) => m.name));
+      OLLAYA_MINE.clear();
+      for (const m of tags) if ((m.details ?? {}).parent_model) OLLAYA_MINE.add(m.name);
+      renderOllayaModels();
+      renderEngineLabel();
+    } catch (e) { /* 데몬 꺼짐 — 드롭다운 유지 */ }
+  }
+  function renderOllayaModels() {
+    for (const selId of ['presetmodel', 'quizmodel']) {
+      const sel = $(selId);
+      if (!sel) continue;
+      const old = sel.querySelector('optgroup[data-ollaya]');
+      if (old) old.remove();
+      if (!OLLAYA_MODELS.size) continue;
+      const og = document.createElement('optgroup');
+      og.setAttribute('label', '내 ollaya 데몬 (★=내가 만든 모델)');
+      og.setAttribute('data-ollaya', '1');
+      for (const name of [...OLLAYA_MODELS].sort()) {
+        const o = document.createElement('option');
+        o.value = name;
+        o.textContent = (OLLAYA_MINE.has(name) ? '★ ' : '') + name + (OLLAYA_MINE.has(name) ? ' (내 모델)' : ' (ollaya)');
+        og.appendChild(o);
+      }
+      sel.appendChild(og);
+    }
+  }
   function getEngine() {
     return localStorage.getItem(LS_ENGINE) || 'auto';
   }
@@ -85,9 +126,10 @@
   }
   function engineLabelText() {
     const eng = getEngine();
-    if (eng === 'laptop') return '노트북 native (ts.net/decision) — 전부 노트북';
-    if (eng === 'auto') return '자동 — 결정모델(tev1·nimble)은 노트북, 나머지는 클라우드';
-    return '클라우드 (Worker 프록시) — 전부 클라우드';
+    if (eng === 'laptop') return '노트북 native (ts.net/decision) — 전부 노트북(ollama)';
+    if (eng === 'ollaya') return '노트북 ollaya (ts.net) — 데몬 모델(★ 포함)은 ollaya, 없는 모델은 클라우드 폴백';
+    if (eng === 'auto') return '자동 — 내 ollaya 모델(★)·결정모델(tev1·nimble)은 노트북, 나머지는 클라우드';
+    return '클라우드 (Worker 프록시) — 전부 클라우드 (★ ollaya 모델은 예외적으로 ollaya)';
   }
   function renderEngineLabel() {
     const txt = engineLabelText();
@@ -97,17 +139,22 @@
     if (q) q.textContent = txt;
   }
   function engineEndpoint(model) {
-    // auto: 결정전용 모델(tev1·nimble)은 노트북, 나머지는 클라우드
+    // ollaya 데몬 모델은 엔진 선택과 무관하게 ollaya로 (다른 엔진에는 존재하지 않는 모델)
+    if (OLLAYA_MODELS.has(model)) return OLLAYA_BASE + '/v1/systemone';
     if (getEngine() === 'laptop') return LAPTOP_BASE + '/v1/systemone';
+    if (getEngine() === 'ollaya') return OLLAYA_MODELS.has(model) ? OLLAYA_BASE + '/v1/systemone' : '/api/decide';
     if (getEngine() === 'auto') return isLaptopModel(model) ? LAPTOP_BASE + '/v1/systemone' : '/api/decide';
     return '/api/decide';
   }
 
   // ---------- 호출 ----------
   async function decide(model, state, questions, signal) {
-    const r = await fetch(engineEndpoint(model), {
+    const target = engineEndpoint(model);
+    const headers = { 'Content-Type': 'application/json' };
+    if (target === OLLAYA_BASE + '/v1/systemone') headers['Authorization'] = 'Bearer ' + OLLAYA_KEY;
+    const r = await fetch(target, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({ model, state, questions }),
       signal
     });
@@ -118,8 +165,8 @@
       const msg = data && (data.error && data.error.message || data.error) || text.slice(0, 200);
       throw new Error('HTTP ' + r.status + ' — ' + msg);
     }
-    const wentLaptop = (engineEndpoint(model) === LAPTOP_BASE + '/v1/systemone');
-    if (wentLaptop && data && !data.meta) data.meta = { engine: 'systemone-native', model: data.model || model };
+    if (target === LAPTOP_BASE + '/v1/systemone' && data && !data.meta) data.meta = { engine: 'systemone-native(ollama)', model: data.model || model };
+    if (target === OLLAYA_BASE + '/v1/systemone' && data && !data.meta) data.meta = { engine: 'ollaya-native(11435)', model: data.model || model };
     return data;
   }
 
@@ -314,7 +361,7 @@
       const hint = (eng2 === 'laptop' || eng2 === 'auto')
         ? ' — 노트북 전원·tailscale VPN 확인 후 재시도 (자동 모드에선 클라우드 모델은 영향 없음)' : '';
       setStatus('pingstat', '오류: ' + (e && e.message ? e.message : String(e)) + hint, 'err');
-    } finally { busy = false; lock('pingbtn', false, null, '연결 테스트'); }
+    } finally { busy = false; lock('pingbtn', false, null, '연결 테스트'); loadOllayaModels(); }
   }
 
   function loadPresetByKey(key) {
@@ -684,6 +731,7 @@
     }
   })();
   $('enginesel').value = getEngine();
+  loadOllayaModels();
   renderEngineLabel();
   renderPresetOptions(); loadPresetByKey('support');
   console.log('[decision-lab] ready');

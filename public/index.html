@@ -145,9 +145,10 @@
         </div>
         <div class="row" style="align-items:stretch">
           <select id="enginesel" style="flex:2.2" aria-label="엔진">
-            <option value="auto">자동 (결정모델=노트북, 나머지=클라우드)</option>
+            <option value="auto">자동 (내 모델=ollaya, 결정모델=노트북, 나머지=클라우드)</option>
             <option value="cloud">클라우드 (Worker 프록시)</option>
-            <option value="laptop">노트북 native (tev1·nimble)</option>
+            <option value="laptop">노트북 native ollama (tev1·nimble)</option>
+            <option value="ollaya">노트북 ollaya (내 결정모델 ★)</option>
           </select>
           <button id="engineapply" class="ghost" style="flex:1">엔진 적용</button>
         </div>
@@ -221,6 +222,6 @@
   </nav>
 </div>
 <div id="jse"></div>
-<script src="/app.js?v14"></script>
+<script src="/app.js?v15"></script>
 </body>
 </html>
