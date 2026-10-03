@@ -73,7 +73,17 @@
   const LAPTOP_BASE = 'https://dydtn.tailc2a754.ts.net/decision';
   // 노트북(o llama 0.35)에 실제 존재하는 결정모델 — 이 이름은 노트북으로 라우팅
   const LAPTOP_MODELS = ['tev1:0.8b', 'tev1:latest', 'nimble', 'nimble:latest'];
-  function isLaptopModel(m) { return LAPTOP_MODELS.includes(m); }
+  let OLLAMA_MODELS = new Set();      // 노트북 ollama 설치 모델 — 부팅·핑 때 /api/tags 실측 갱신 (auto 라우팅에 사용)
+  function isLaptopModel(m) { return LAPTOP_MODELS.includes(m) || OLLAMA_MODELS.has(m); }
+  async function loadOllamaModels() {
+    try {
+      const tr = await fetch(LAPTOP_BASE + '/api/tags');
+      if (!tr.ok) return;
+      const tags = await tr.json();
+      OLLAMA_MODELS = new Set((tags.models ?? []).map((m) => m.name));
+      renderOllamaModels();
+    } catch (e) { /* 데몬 꺼짐 — 하드코딩 옵션만 유지 */ }
+  }
   // 노트북 ollaya 데몬(11435, ts.net 루트) — 내가 만든 결정모델(ys-triage 등)이 사는 곳
   const OLLAYA_BASE = 'https://dydtn.tailc2a754.ts.net';
   const OLLAYA_KEY = '#ys1217474!';
@@ -110,6 +120,26 @@
         const o = document.createElement('option');
         o.value = name;
         o.textContent = (OLLAYA_MINE.has(name) ? '★ ' : '') + name + (OLLAYA_MINE.has(name) ? ' (내 모델)' : ' (ollaya)');
+        og.appendChild(o);
+      }
+      sel.appendChild(og);
+    }
+  }
+  function renderOllamaModels() {
+    for (const selId of ['presetmodel', 'quizmodel']) {
+      const sel = $(selId);
+      if (!sel) continue;
+      const old = sel.querySelector('optgroup[data-ollama]');
+      if (old) old.remove();
+      if (!OLLAMA_MODELS.size) continue;
+      const og = document.createElement('optgroup');
+      og.setAttribute('label', '노트북 ollama (설치된 모델 — 실측)');
+      og.setAttribute('data-ollama', '1');
+      for (const name of [...OLLAMA_MODELS].sort()) {
+        if (LAPTOP_MODELS.includes(name)) continue;   // 하드코딩 옵션과 중복 방지
+        const o = document.createElement('option');
+        o.value = name;
+        o.textContent = name + ' (노트북 ollama)';
         og.appendChild(o);
       }
       sel.appendChild(og);
@@ -365,7 +395,7 @@
       const hint = (eng2 === 'laptop' || eng2 === 'auto')
         ? ' — 노트북 전원·tailscale VPN 확인 후 재시도 (자동 모드에선 클라우드 모델은 영향 없음)' : '';
       setStatus('pingstat', '오류: ' + (e && e.message ? e.message : String(e)) + hint, 'err');
-    } finally { busy = false; lock('pingbtn', false, null, '연결 테스트'); loadOllayaModels(); }
+    } finally { busy = false; lock('pingbtn', false, null, '연결 테스트'); loadOllayaModels(); loadOllamaModels(); }
   }
 
   function loadPresetByKey(key) {
@@ -759,6 +789,7 @@
   });
   $('enginesel').value = getEngine();
   loadOllayaModels();
+  loadOllamaModels();
   renderEngineLabel();
   renderPresetOptions(); loadPresetByKey('support');
   console.log('[decision-lab] ready');
